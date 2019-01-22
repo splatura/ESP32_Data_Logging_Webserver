@@ -88,7 +88,7 @@ void setup() {
   server.on("/Help",  help);
   server.on("/LgTU",  logtime_up);
   server.on("/LgTD",  logtime_down);
-  server.on("/LogV",  LOG_view);
+  server.on("/LogV.txt",  LOG_view);
   server.on("/LogE",  LOG_erase);
   server.on("/LogS",  LOG_stats);
   server.begin();
@@ -530,7 +530,7 @@ void append_page_footer(){ // Saves repeating many lines of code for HTML page f
   webpage += F("<li><a href='/Setup'>Setup</a></li>");
   webpage += F("<li><a href='/Help'>Help</a></li>");
   webpage += F("<li><a href='/LogS'>Log Size</a></li>");
-  webpage += F("<li><a href='/LogV'>Log View</a></li>");
+  webpage += F("<li><a href='/LogV.txt'>Log View</a></li>");
   webpage += F("<li><a href='/LogE'>Log Erase</a></li>");
   webpage += F("</ul><footer><p ");
   webpage += F("style='background-color:#a3b2f7'>&copy;");
