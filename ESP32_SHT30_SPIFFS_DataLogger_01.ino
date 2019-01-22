@@ -693,7 +693,7 @@ byte calc_dow(int y, int m, int d) {
 #else
 void StartTime(){
   configTime(0, 0, "0.uk.pool.ntp.org", "time.nist.gov");
-  setenv("TZ", "GMT0BST,M3.5.0/01,M10.5.0/02",1); // Change for your location
+  setenv("TZ", "EST-10EDT-11,M10.5.0/02,M3.5.0/03",1); // Change for your location
   UpdateLocalTime();
 }
 
