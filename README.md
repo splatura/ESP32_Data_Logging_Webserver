@@ -5,6 +5,6 @@ This version also adds the ability to update the firmware through the web interf
 
 Put all files (ESP32_Data_Logging_Webserver.ino, credentials.h and web.h) in your sketch folder and modifiy the Wi-Fi access requirements (password, SSID and hostname) to match yours via the file tab in the IDE.
 
-Monitor the Serial Port for the assigned IP address and connect to the server with http://IP/ (e.g. http://192.168.0.5/) or http://hostname.local/
+Monitor the Serial Port for the assigned IP address and connect to the server with http://IP/ (e.g. http://192.168.0.5/) or http://esp32_logger.local/
 
 Happy making!
