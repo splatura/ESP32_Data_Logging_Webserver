@@ -28,6 +28,7 @@ See more at http://www.dsbird.org.uk
   #include <WiFiClient.h>
   #include "FS.h"
   #include "SPIFFS.h"
+  #include <ESPmDNS.h>
 #endif
 #include <SPI.h>
 #include <time.h>        
@@ -646,14 +647,17 @@ int StartWiFi(const char* ssid, const char* password) {
   }
   Serial.print(F("WiFi connected at: "));
   Serial.println(WiFi.localIP());
-    /*use mdns for host name resolution*/
-  if (!MDNS.begin(host)) { //http://esp32.local
-    Serial.println("Error setting up MDNS responder!");
-    while (1) {
-      delay(1000);
+  #ifdef ESP8266
+  #else
+      /*use mdns for host name resolution*/
+    if (!MDNS.begin(host)) { //http://esp32.local
+      Serial.println("Error setting up MDNS responder!");
+      while (1) {
+        delay(1000);
+      }
     }
-  }
-  Serial.println("mDNS responder started");
+    Serial.println("mDNS responder started");
+  #endif
   return 1;
 }
 
