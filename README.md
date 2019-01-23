@@ -7,4 +7,6 @@ Put all files (ESP32_Data_Logging_Webserver.ino, credentials.h and web.h) in you
 
 Monitor the Serial Port for the assigned IP address and connect to the server with http://IP/ (e.g. http://192.168.0.5/) or http://esp32_logger.local/
 
+Wire up to the I2C interface (Usually GPIO 22 (SCL) and GPOI 21 (SDA)) and connect your in/out power accordingly.  Remember to keep ground common when monitoring the voltage/mA.  You can utilise this board from Adafruit for this project https://www.adafruit.com/product/904.
+
 Happy making!
