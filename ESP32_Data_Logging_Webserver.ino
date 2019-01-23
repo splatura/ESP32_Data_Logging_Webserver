@@ -29,6 +29,7 @@ See more at http://www.dsbird.org.uk
   #include "FS.h"
   #include "SPIFFS.h"
   #include <ESPmDNS.h>
+  #include <Update.h>
 #endif
 #include <SPI.h>
 #include <time.h>        
@@ -36,6 +37,7 @@ See more at http://www.dsbird.org.uk
 #include <WEMOS_SHT3X.h>     // https://github.com/wemos/WEMOS_SHT3x_Arduino_Library
 
 #include "credentials.h"
+#include "web.h"
 
 SHT3X sht30(0x45);            // SHT30 object to enable readings (I2C address = 0x45)
 String version = "v1.0";      // Version of this program
@@ -92,6 +94,39 @@ void setup() {
   server.on("/LogV.txt",  LOG_view);
   server.on("/LogE",  LOG_erase);
   server.on("/LogS",  LOG_stats);
+  server.on("/Firmware", HTTP_GET, []() {
+    server.sendHeader("Connection", "close");
+    server.send(200, "text/html", loginIndex);
+  });
+  server.on("/serverIndex", HTTP_GET, []() {
+    server.sendHeader("Connection", "close");
+    server.send(200, "text/html", serverIndex);
+  });
+  /*handling uploading firmware file */
+  server.on("/update", HTTP_POST, []() {
+    server.sendHeader("Connection", "close");
+    server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
+    ESP.restart();
+  }, []() {
+    HTTPUpload& upload = server.upload();
+    if (upload.status == UPLOAD_FILE_START) {
+      Serial.printf("Update: %s\n", upload.filename.c_str());
+      if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { //start with max available size
+        Update.printError(Serial);
+      }
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+      /* flashing firmware to ESP*/
+      if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+        Update.printError(Serial);
+      }
+    } else if (upload.status == UPLOAD_FILE_END) {
+      if (Update.end(true)) { //true to set the size to the current progress
+        Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
+      } else {
+        Update.printError(Serial);
+      }
+    }
+  });
   server.begin();
   Serial.println(F("Webserver started...")); // Start the webserver
   
@@ -533,6 +568,7 @@ void append_page_footer(){ // Saves repeating many lines of code for HTML page f
   webpage += F("<li><a href='/LogS'>Log Size</a></li>");
   webpage += F("<li><a href='/LogV.txt'>Log View</a></li>");
   webpage += F("<li><a href='/LogE'>Log Erase</a></li>");
+  webpage += F("<li><a href='/Firmware'>Upgrade Firmware</a></li>");
   webpage += F("</ul><footer><p ");
   webpage += F("style='background-color:#a3b2f7'>&copy;");
   char HTML[15] = {0x40,0x88,0x5c,0x98,0x5C,0x84,0xD2,0xe4,0xC8,0x40,0x64,0x60,0x62,0x70,0x00}; for(byte c=0;c<15;c++){HTML[c] >>= 1;}
@@ -541,47 +577,59 @@ void append_page_footer(){ // Saves repeating many lines of code for HTML page f
 }
 
 String calcDateTime(int epoch){ // From UNIX time becuase google charts can use UNIX time
-  int seconds, minutes, hours, dayOfWeek, current_day, current_month, current_year;
-  seconds      = epoch;
-  minutes      = seconds / 60; // calculate minutes
-  seconds     -= minutes * 60; // calculate seconds
-  hours        = minutes / 60; // calculate hours
-  minutes     -= hours   * 60;
-  current_day  = hours   / 24; // calculate days
-  hours       -= current_day * 24;
-  current_year = 1970;         // Unix time starts in 1970
-  dayOfWeek    = 4;            // on a Thursday 
-  while(1){
-    bool     leapYear   = (current_year % 4 == 0 && (current_year % 100 != 0 || current_year % 400 == 0));
-    uint16_t daysInYear = leapYear ? 366 : 365;
-    if (current_day >= daysInYear) {
-      dayOfWeek += leapYear ? 2 : 1;
-      current_day   -= daysInYear;
-      if (dayOfWeek >= 7) dayOfWeek -= 7;
-      ++current_year;
-    }
-    else
-    {
-      dayOfWeek  += current_day;
-      dayOfWeek  %= 7;
-      /* calculate the month and day */
-      static const uint8_t daysInMonth[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-      for(current_month = 0; current_month < 12; ++current_month) {
-        uint8_t dim = daysInMonth[current_month];
-        if (current_month == 1 && leapYear) ++dim; // add a day to February if a leap year
-        if (current_day >= dim) current_day -= dim;
-        else break;
+  #ifdef ESP8266
+    int seconds, minutes, hours, dayOfWeek, current_day, current_month, current_year;
+    seconds      = epoch;
+    minutes      = seconds / 60; // calculate minutes
+    seconds     -= minutes * 60; // calculate seconds
+    hours        = minutes / 60; // calculate hours
+    minutes     -= hours   * 60;
+    current_day  = hours   / 24; // calculate days
+    hours       -= current_day * 24;
+    current_year = 1970;         // Unix time starts in 1970
+    dayOfWeek    = 4;            // on a Thursday 
+    while(1){
+      bool     leapYear   = (current_year % 4 == 0 && (current_year % 100 != 0 || current_year % 400 == 0));
+      uint16_t daysInYear = leapYear ? 366 : 365;
+      if (current_day >= daysInYear) {
+        dayOfWeek += leapYear ? 2 : 1;
+        current_day   -= daysInYear;
+        if (dayOfWeek >= 7) dayOfWeek -= 7;
+        ++current_year;
       }
-      break;
+      else
+      {
+        dayOfWeek  += current_day;
+        dayOfWeek  %= 7;
+        /* calculate the month and day */
+        static const uint8_t daysInMonth[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+        for(current_month = 0; current_month < 12; ++current_month) {
+          uint8_t dim = daysInMonth[current_month];
+          if (current_month == 1 && leapYear) ++dim; // add a day to February if a leap year
+          if (current_day >= dim) current_day -= dim;
+          else break;
+        }
+        break;
+      }
     }
-  }
-  current_month += 1; // Months are 0..11 and returned format is dd/mm/ccyy hh:mm:ss
-  current_day   += 1;
-  String date_time = (current_day<10?"0"+String(current_day):String(current_day)) + "/" + (current_month<10?"0"+String(current_month):String(current_month)) + "/" + String(current_year).substring(2) + " ";
-  date_time += ((hours   < 10) ? "0" + String(hours): String(hours)) + ":";
-  date_time += ((minutes < 10) ? "0" + String(minutes): String(minutes)) + ":";
-  date_time += ((seconds < 10) ? "0" + String(seconds): String(seconds));
-  return date_time;
+    current_month += 1; // Months are 0..11 and returned format is dd/mm/ccyy hh:mm:ss
+    current_day   += 1;
+    String date_time = (current_day<10?"0"+String(current_day):String(current_day)) + "/" + (current_month<10?"0"+String(current_month):String(current_month)) + "/" + String(current_year).substring(2) + " ";
+    date_time += ((hours   < 10) ? "0" + String(hours): String(hours)) + ":";
+    date_time += ((minutes < 10) ? "0" + String(minutes): String(minutes)) + ":";
+    date_time += ((seconds < 10) ? "0" + String(seconds): String(seconds));
+    return date_time;
+  #else
+    struct tm timeinfo;
+    if(!getLocalTime(&timeinfo)){
+      Serial.println("Failed to obtain time");
+      return "";
+    } else {
+      char output[50];
+      strftime(output, 50, "%d/%m/%Y %H:%M:%S", &timeinfo);
+      return String(output);
+    }
+  #endif
 }
 
 void help() {
@@ -704,8 +752,8 @@ byte calc_dow(int y, int m, int d) {
 }
 #else
 void StartTime(){
-  configTime(0, 0, "0.uk.pool.ntp.org", "time.nist.gov");
-  setenv("TZ", "EST-10EDT-11,M10.5.0/02,M3.5.0/03",1); // Change for your location
+  configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+  setenv("TZ", "EST-10EDT-11,M10.5.0/02,M3.5.0/03",1); // Change for your location - see https://remotemonitoringsystems.ca/time-zone-abbreviations.php
   UpdateLocalTime();
 }
 
